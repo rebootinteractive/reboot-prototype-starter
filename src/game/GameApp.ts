@@ -41,7 +41,8 @@ export class GameApp {
 
   private build() {
     for (const el of this.opts.level.elements) {
-      const dot = new Graphics().circle(0, 0, DOT_R).fill((el.color as number) ?? 0xffffff);
+      const color = typeof el.color === 'number' ? el.color : 0xffffff;
+      const dot = new Graphics().circle(0, 0, DOT_R).fill(color);
       dot.position.set(el.x * STAGE_W, el.y * STAGE_H);
       dot.eventMode = 'static';
       dot.cursor = 'pointer';
@@ -85,6 +86,7 @@ export class GameApp {
   dispose() {
     this.resizeObserver?.disconnect();
     this.backBtn?.remove();
+    this.dots = [];
     // destroys renderer, view canvas, and all stage children/graphics
     this.app.destroy({ removeView: true }, { children: true });
   }
