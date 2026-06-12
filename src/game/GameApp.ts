@@ -1,16 +1,13 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { FederatedPointerEvent } from 'pixi.js';
 import type { LevelData } from '../shared/types';
+import { STAGE_W, STAGE_H, DOT_R, coerceColor } from '../shared/stage';
 
 export interface GameOptions {
   level: LevelData;
   onMenu: () => void;
   onWin?: () => void;
 }
-
-const STAGE_W = 393;
-const STAGE_H = 852;
-const DOT_R = 26;
 
 export class GameApp {
   private app = new Application();
@@ -41,7 +38,7 @@ export class GameApp {
 
   private build() {
     for (const el of this.opts.level.elements) {
-      const color = typeof el.color === 'number' ? el.color : 0xffffff;
+      const color = coerceColor(el.color);
       const dot = new Graphics().circle(0, 0, DOT_R).fill(color);
       dot.position.set(el.x * STAGE_W, el.y * STAGE_H);
       dot.eventMode = 'static';

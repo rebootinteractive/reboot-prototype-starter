@@ -1,6 +1,7 @@
 import { Application, Container, Graphics, Rectangle } from 'pixi.js';
 import type { LevelData, GameElement } from '../shared/types';
 import type { LevelStore } from '../levels/store';
+import { STAGE_W, STAGE_H, DOT_R, coerceColor } from '../shared/stage';
 
 export interface EditorOptions {
   store: LevelStore;
@@ -10,9 +11,6 @@ export interface EditorOptions {
   onTest: (level: LevelData) => void;
 }
 
-const STAGE_W = 393;
-const STAGE_H = 852;
-const DOT_R = 26;
 const PALETTE: Array<{ type: string; color: number }> = [
   { type: 'dot', color: 0x6cc24a },
   { type: 'dot', color: 0xff6b6b },
@@ -29,22 +27,18 @@ export class EditorApp {
   private active = 0;
   private name: string;
   private id: string;
+  private saveResetTimer?: ReturnType<typeof setTimeout>;
 
   private constructor(private parent: HTMLElement, private opts: EditorOptions) {
     this.elements = opts.initial ? structuredClone(opts.initial.elements) : [];
     this.name = opts.initial?.name ?? 'New Level';
-    this.id = opts.initial?.id ?? `custom-${this.slugSeed()}`;
+    this.id = opts.initial?.id ?? `custom-${crypto.randomUUID()}`;
   }
 
   static async create(parent: HTMLElement, opts: EditorOptions): Promise<EditorApp> {
     const e = new EditorApp(parent, opts);
     await e.init();
     return e;
-  }
-
-  private slugSeed(): string {
-    // id stable per editor session; uniqueness comes from name + content on save
-    return Math.abs(hashString(this.parent.clientWidth + ':' + (this.opts.initial?.id ?? 'new'))).toString(36);
   }
 
   private async init() {
@@ -74,7 +68,7 @@ export class EditorApp {
   private redraw() {
     this.root.removeChildren().forEach((c) => c.destroy());
     for (const el of this.elements) {
-      const color = typeof el.color === 'number' ? el.color : 0xffffff;
+      const color = coerceColor(el.color);
       const dot = new Graphics().circle(0, 0, DOT_R).fill(color);
       dot.position.set(el.x * STAGE_W, el.y * STAGE_H);
       this.root.addChild(dot);
@@ -90,7 +84,7 @@ export class EditorApp {
     bar.className = 'editor-chrome overlay';
     bar.innerHTML = `
       <div class="editor-palette"></div>
-      <input class="editor-name" value="${this.name}" />
+      <input class="editor-name" />
       <div class="editor-actions">
         <button class="btn small" data-act="clear">Clear</button>
         <button class="btn small" data-act="test">▶ Test</button>
@@ -105,7 +99,9 @@ export class EditorApp {
       b.onclick = () => { this.active = i; pal.querySelectorAll('.color-dot').forEach((n) => n.classList.remove('active')); b.classList.add('active'); };
       pal.appendChild(b);
     });
-    bar.querySelector<HTMLInputElement>('.editor-name')!.oninput = (e) => { this.name = (e.target as HTMLInputElement).value; };
+    const nameInput = bar.querySelector<HTMLInputElement>('.editor-name')!;
+    nameInput.value = this.name;
+    nameInput.oninput = (e) => { this.name = (e.target as HTMLInputElement).value; };
     bar.querySelector('[data-act="clear"]')!.addEventListener('click', () => { this.elements = []; this.redraw(); });
     bar.querySelector('[data-act="test"]')!.addEventListener('click', () => this.opts.onTest(this.snapshot()));
     bar.querySelector('[data-act="exit"]')!.addEventListener('click', () => this.opts.onExit());
@@ -114,7 +110,7 @@ export class EditorApp {
       btn.disabled = true; btn.textContent = 'Saving…';
       try { await this.opts.store.save(this.snapshot()); btn.textContent = 'Saved ✓'; }
       catch (err) { btn.textContent = 'Save failed'; console.error(err); }
-      finally { setTimeout(() => { btn.disabled = false; btn.textContent = 'Save'; }, 1200); }
+      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Save'; }, 1200); }
     });
     this.parent.appendChild(bar);
     this.chrome = bar;
@@ -131,14 +127,9 @@ export class EditorApp {
   dispose() {
     this.resizeObserver?.disconnect();
     this.chrome?.remove();
+    if (this.saveResetTimer) clearTimeout(this.saveResetTimer);
     this.elements = [];
     // destroys renderer, view canvas, and all stage children/graphics
     this.app.destroy({ removeView: true }, { children: true });
   }
-}
-
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; }
-  return h;
 }
