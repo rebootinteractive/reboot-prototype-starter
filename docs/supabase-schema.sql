@@ -15,3 +15,4 @@ alter table public.levels enable row level security;
 create policy "anon read"   on public.levels for select using (true);
 create policy "anon insert" on public.levels for insert with check (true);
 create policy "anon update" on public.levels for update using (true) with check (true);
+-- No delete policy: anon cannot delete rows. Intentional.

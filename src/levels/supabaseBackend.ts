@@ -36,9 +36,9 @@ export class SupabaseBackend implements LevelsBackend {
 // In-memory backend used when HAS_BACKEND is false (offline dev).
 export class MemoryBackend implements LevelsBackend {
   private rows: LevelData[] = [];
-  async fetch(): Promise<LevelData[]> { return [...this.rows]; }
+  async fetch(): Promise<LevelData[]> { return this.rows.map((l) => structuredClone(l)); }
   async insert(level: LevelData): Promise<void> {
     const i = this.rows.findIndex((l) => l.id === level.id);
-    if (i >= 0) this.rows[i] = level; else this.rows.push(level);
+    if (i >= 0) this.rows[i] = structuredClone(level); else this.rows.push(structuredClone(level));
   }
 }
