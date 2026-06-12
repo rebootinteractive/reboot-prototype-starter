@@ -1,2 +1,44 @@
-const app = document.getElementById('app')!;
-app.textContent = 'starter boot ok';
+import { MainMenu } from './ui/MainMenu';
+import { GameApp } from './game/GameApp';
+import { EditorApp } from './editor/EditorApp';
+import { LevelStore } from './levels/store';
+import { SupabaseBackend, MemoryBackend } from './levels/supabaseBackend';
+import { BUILTIN_LEVELS } from './levels/builtin';
+import { PROTOTYPE, HAS_BACKEND } from './config';
+import type { LevelData } from './shared/types';
+
+const appEl = document.getElementById('app')!;
+const backend = HAS_BACKEND ? new SupabaseBackend() : new MemoryBackend();
+const store = new LevelStore(PROTOTYPE, backend, BUILTIN_LEVELS);
+
+let current: { dispose(): void } | undefined;
+function clearApp() { current?.dispose(); current = undefined; }
+
+function showMenu() {
+  clearApp();
+  current = new MainMenu(appEl, {
+    store,
+    onPlay: (lv) => showGame(lv),
+    onEdit: (lv) => showEditor(lv),
+  });
+}
+
+async function showGame(level: LevelData, returnToEditor?: LevelData) {
+  clearApp();
+  current = await GameApp.create(appEl, {
+    level,
+    onMenu: () => (returnToEditor ? showEditor(returnToEditor) : showMenu()),
+    onWin: () => { /* v1: silent; mechanic decides win UX */ },
+  });
+}
+
+async function showEditor(initial?: LevelData) {
+  clearApp();
+  current = await EditorApp.create(appEl, {
+    store, prototype: PROTOTYPE, initial,
+    onExit: () => showMenu(),
+    onTest: (lv) => showGame(lv, lv),
+  });
+}
+
+showMenu();
