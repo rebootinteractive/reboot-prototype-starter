@@ -32,8 +32,9 @@ describe('LevelStore.save', () => {
   it('inserts a valid level with the store prototype', async () => {
     const insert = vi.fn(async () => {});
     const store = new LevelStore('p', fakeBackend({ insert }), []);
-    await store.save({ id: 'x', name: 'X', prototype: 'p', elements: [] });
+    await store.save({ id: 'x', name: 'X', prototype: 'other', elements: [] });
     expect(insert).toHaveBeenCalledOnce();
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ prototype: 'p' }));
   });
 
   it('rejects an invalid level', async () => {
