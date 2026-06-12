@@ -22,6 +22,7 @@ export class MainMenu {
 
   private async load() {
     const levels = await this.opts.store.list();
+    if (!this.root.isConnected) return;
     const list = this.root.querySelector('.menu-list')!;
     list.innerHTML = '';
     for (const lv of levels) {

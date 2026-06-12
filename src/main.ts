@@ -14,8 +14,11 @@ const store = new LevelStore(PROTOTYPE, backend, BUILTIN_LEVELS);
 let current: { dispose(): void } | undefined;
 function clearApp() { current?.dispose(); current = undefined; }
 
+let navSeq = 0;
+
 function showMenu() {
   clearApp();
+  navSeq++;
   current = new MainMenu(appEl, {
     store,
     onPlay: (lv) => showGame(lv),
@@ -25,20 +28,26 @@ function showMenu() {
 
 async function showGame(level: LevelData, returnToEditor?: LevelData) {
   clearApp();
-  current = await GameApp.create(appEl, {
+  const seq = ++navSeq;
+  const g = await GameApp.create(appEl, {
     level,
     onMenu: () => (returnToEditor ? showEditor(returnToEditor) : showMenu()),
     onWin: () => { /* v1: silent; mechanic decides win UX */ },
   });
+  if (seq !== navSeq) { g.dispose(); return; }  // superseded by a newer navigation
+  current = g;
 }
 
 async function showEditor(initial?: LevelData) {
   clearApp();
-  current = await EditorApp.create(appEl, {
+  const seq = ++navSeq;
+  const e = await EditorApp.create(appEl, {
     store, prototype: PROTOTYPE, initial,
     onExit: () => showMenu(),
     onTest: (lv) => showGame(lv, lv),
   });
+  if (seq !== navSeq) { e.dispose(); return; }  // superseded by a newer navigation
+  current = e;
 }
 
 showMenu();
