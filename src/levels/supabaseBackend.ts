@@ -28,17 +28,10 @@ export class SupabaseBackend implements LevelsBackend {
 
   async insert(level: LevelData): Promise<void> {
     const row: LevelRow = { id: level.id, prototype: level.prototype, name: level.name, data: level };
-    const { error } = await this.client.from('levels').upsert(row, { onConflict: 'id' });
+    // Matches the (prototype, id) key: an id is unique within a game, not across
+    // the studio's shared table. Conflicting on `id` alone would let one
+    // prototype's level overwrite another's.
+    const { error } = await this.client.from('levels').upsert(row, { onConflict: 'prototype,id' });
     if (error) throw error;
-  }
-}
-
-// In-memory backend used when HAS_BACKEND is false (offline dev).
-export class MemoryBackend implements LevelsBackend {
-  private rows: LevelData[] = [];
-  async fetch(): Promise<LevelData[]> { return this.rows.map((l) => structuredClone(l)); }
-  async insert(level: LevelData): Promise<void> {
-    const i = this.rows.findIndex((l) => l.id === level.id);
-    if (i >= 0) this.rows[i] = structuredClone(level); else this.rows.push(structuredClone(level));
   }
 }
