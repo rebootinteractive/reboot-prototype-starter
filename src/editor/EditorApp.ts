@@ -2,6 +2,7 @@ import { Application, Container, Graphics, Rectangle } from 'pixi.js';
 import type { LevelData, GameElement } from '../shared/types';
 import type { LevelStore } from '../levels/store';
 import { STAGE_W, STAGE_H, DOT_R, coerceColor } from '../shared/stage';
+import { SCHEMA_VERSION } from '../levels/schema';
 
 export interface EditorOptions {
   store: LevelStore;
@@ -76,7 +77,12 @@ export class EditorApp {
   }
 
   private snapshot(): LevelData {
-    return { id: this.id, name: this.name, prototype: this.opts.prototype, elements: structuredClone(this.elements) };
+    return {
+      id: this.id, name: this.name, prototype: this.opts.prototype,
+      elements: structuredClone(this.elements),
+      // Stamp the format edition so a later reader can refuse what it cannot parse.
+      meta: { schema: SCHEMA_VERSION },
+    };
   }
 
   private buildChrome() {
@@ -88,7 +94,8 @@ export class EditorApp {
       <div class="editor-actions">
         <button class="btn small" data-act="clear">Clear</button>
         <button class="btn small" data-act="test">▶ Test</button>
-        <button class="btn small" data-act="save">Save</button>
+        <button class="btn small" data-act="save">Save draft</button>
+        <button class="btn small" data-act="publish">Publish</button>
         <button class="btn ghost small" data-act="exit">← Menu</button>
       </div>`;
     const pal = bar.querySelector('.editor-palette')!;
@@ -108,9 +115,22 @@ export class EditorApp {
     bar.querySelector('[data-act="save"]')!.addEventListener('click', async (ev) => {
       const btn = ev.target as HTMLButtonElement;
       btn.disabled = true; btn.textContent = 'Saving…';
-      try { await this.opts.store.save(this.snapshot()); btn.textContent = 'Saved ✓'; }
+      // Private to this browser, always -- publishing is a deliberate second step.
+      try { await this.opts.store.saveDraft(this.snapshot()); btn.textContent = 'Saved ✓'; }
       catch (err) { btn.textContent = 'Save failed'; console.error(err); }
-      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Save'; }, 1200); }
+      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Save draft'; }, 1200); }
+    });
+    bar.querySelector('[data-act="publish"]')!.addEventListener('click', async (ev) => {
+      const btn = ev.target as HTMLButtonElement;
+      if (!this.opts.store.canPublish) {
+        btn.textContent = 'Set PROTOTYPE first';
+        this.saveResetTimer = setTimeout(() => { btn.textContent = 'Publish'; }, 2000);
+        return;
+      }
+      btn.disabled = true; btn.textContent = 'Publishing…';
+      try { await this.opts.store.publish(this.snapshot()); btn.textContent = 'Published ✓'; }
+      catch (err) { btn.textContent = 'Publish failed'; console.error(err); }
+      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Publish'; }, 1600); }
     });
     this.parent.appendChild(bar);
     this.chrome = bar;

@@ -2,14 +2,18 @@ import { MainMenu } from './ui/MainMenu';
 import { GameApp } from './game/GameApp';
 import { EditorApp } from './editor/EditorApp';
 import { LevelStore } from './levels/store';
-import { SupabaseBackend, MemoryBackend } from './levels/supabaseBackend';
+import { SupabaseBackend } from './levels/supabaseBackend';
+import { LocalDraftBackend } from './levels/localBackend';
 import { BUILTIN_LEVELS } from './levels/builtin';
 import { PROTOTYPE, HAS_BACKEND } from './config';
 import type { LevelData } from './shared/types';
 
 const appEl = document.getElementById('app')!;
-const backend = HAS_BACKEND ? new SupabaseBackend() : new MemoryBackend();
-const store = new LevelStore(PROTOTYPE, backend, BUILTIN_LEVELS);
+// Drafts are always local. Supabase is the *publish* target only, so having a
+// shared backend configured never turns a private Save into a live publish.
+const drafts = new LocalDraftBackend(PROTOTYPE);
+const published = HAS_BACKEND ? new SupabaseBackend() : null;
+const store = new LevelStore(PROTOTYPE, drafts, published, BUILTIN_LEVELS);
 
 let current: { dispose(): void } | undefined;
 function clearApp() { current?.dispose(); current = undefined; }
