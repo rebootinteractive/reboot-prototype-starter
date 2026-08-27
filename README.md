@@ -38,19 +38,38 @@ rather than pretended to be secret. It grants read, insert and update on the
 Supabase dashboard; deleting the file will not remove it from git history. The
 `service_role` / secret key never belongs in the repo.
 
-## Save vs Publish
+## Three level sources, never merged
 
-- **Save draft** — private to that browser, always. `localStorage`, never shared.
-- **Publish** — the deliberate second step that shares a level with everyone.
+The menu has a tab per source. They are deliberately kept apart: merged into one
+list, a local copy replaces a same-id level from the server, so a colleague's
+published edit disappears behind an older local one with nothing on screen to
+say so. A level living in more than one source is now flagged, not hidden.
 
-They use separate backends (`LocalDraftBackend` and `SupabaseBackend`) so that
-having a shared backend configured can never turn a private Save into a live
-publish.
+| tab | where | editable | deletable | who sees it |
+| --- | --- | --- | --- | --- |
+| **Local** | this browser's `localStorage` | yes | yes | only you |
+| **Repo** | `src/levels/published/*.json` | yes | yes | whoever pulls the repo |
+| **Server** | Supabase | no | no | everyone |
 
-`LevelStore.list()` layers builtin → published → drafts, and a later layer
-replaces a same-id level from an earlier one. So a draft shadows the published
-copy of the level being edited, and either layer failing still returns the
-others.
+**Save** writes back to the tab a level came from and never moves it. The `→`
+buttons copy a level to another tab, keeping its id so a later publish replaces
+rather than duplicates. **Publish** is the deliberate step that shares a level.
+
+**Repo is a real filesystem tab, dev-server only.** A browser cannot write to
+disk, so it talks to `plugins/repoLevels.ts`, a Vite middleware marked
+`apply: 'serve'`. The deployed build has no server, so the tab is absent there —
+enforced by architecture, not a flag. What it writes are ordinary files: git
+tracks them, and a designer commits, diffs and reverts them as usual. Filenames
+follow the level name so diffs read well; a rename moves the file, collisions
+get a suffix, and anything that is not a bare kebab-case `.json` is refused so
+nothing can be written outside the levels directory.
+
+**Server is read-only.** To revise a published level, copy it down to Local or
+Repo, edit, and publish again. There is no delete: the key has no delete
+permission, on purpose.
+
+**Nothing ships in the bundle.** A freshly deployed prototype shows only what
+has been published, so publish your baseline levels as part of first deploy.
 
 ## Level format version
 

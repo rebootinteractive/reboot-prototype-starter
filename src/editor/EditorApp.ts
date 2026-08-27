@@ -1,11 +1,15 @@
 import { Application, Container, Graphics, Rectangle } from 'pixi.js';
 import type { LevelData, GameElement } from '../shared/types';
-import type { LevelStore } from '../levels/store';
+import type { LevelLibrary } from '../levels/library';
+import type { SourceId } from '../levels/sources/types';
+import { ServerSource } from '../levels/sources/server';
 import { STAGE_W, STAGE_H, DOT_R, coerceColor } from '../shared/stage';
 import { SCHEMA_VERSION } from '../levels/schema';
 
 export interface EditorOptions {
-  store: LevelStore;
+  library: LevelLibrary;
+  /** Which source this level came from -- Save writes back to the same one. */
+  source: SourceId;
   prototype: string;
   initial?: LevelData;
   onExit: () => void;
@@ -94,7 +98,7 @@ export class EditorApp {
       <div class="editor-actions">
         <button class="btn small" data-act="clear">Clear</button>
         <button class="btn small" data-act="test">▶ Test</button>
-        <button class="btn small" data-act="save">Save draft</button>
+        <button class="btn small" data-act="save">Save</button>
         <button class="btn small" data-act="publish">Publish</button>
         <button class="btn ghost small" data-act="exit">← Menu</button>
       </div>`;
@@ -113,25 +117,37 @@ export class EditorApp {
     bar.querySelector('[data-act="test"]')!.addEventListener('click', () => this.opts.onTest(this.snapshot()));
     bar.querySelector('[data-act="exit"]')!.addEventListener('click', () => this.opts.onExit());
     bar.querySelector('[data-act="save"]')!.addEventListener('click', async (ev) => {
+      // Writes back to the source this level came from; never moves it between
+      // tabs. Moving is an explicit copy from the menu.
       const btn = ev.target as HTMLButtonElement;
+      const source = this.opts.library.get(this.opts.source);
+      const label = source?.label ?? 'level';
+      if (!source?.save) {
+        btn.textContent = `${label} is read-only`;
+        this.saveResetTimer = setTimeout(() => { btn.textContent = 'Save'; }, 1800);
+        return;
+      }
       btn.disabled = true; btn.textContent = 'Saving…';
-      // Private to this browser, always -- publishing is a deliberate second step.
-      try { await this.opts.store.saveDraft(this.snapshot()); btn.textContent = 'Saved ✓'; }
+      try { await source.save(this.snapshot()); btn.textContent = 'Saved ✓'; }
       catch (err) { btn.textContent = 'Save failed'; console.error(err); }
-      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Save draft'; }, 1200); }
+      finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Save'; }, 1400); }
     });
     bar.querySelector('[data-act="publish"]')!.addEventListener('click', async (ev) => {
+      // Publishing shares a level with everyone -- always a deliberate second
+      // step, never something Save does on your behalf.
       const btn = ev.target as HTMLButtonElement;
-      if (!this.opts.store.canPublish) {
+      const server = this.opts.library.get('server');
+      if (!(server instanceof ServerSource) || !server.available) {
         btn.textContent = 'Set PROTOTYPE first';
         this.saveResetTimer = setTimeout(() => { btn.textContent = 'Publish'; }, 2000);
         return;
       }
       btn.disabled = true; btn.textContent = 'Publishing…';
-      try { await this.opts.store.publish(this.snapshot()); btn.textContent = 'Published ✓'; }
+      try { await server.publish(this.snapshot()); btn.textContent = 'Published ✓'; }
       catch (err) { btn.textContent = 'Publish failed'; console.error(err); }
       finally { this.saveResetTimer = setTimeout(() => { btn.disabled = false; btn.textContent = 'Publish'; }, 1600); }
     });
+
     this.parent.appendChild(bar);
     this.chrome = bar;
   }

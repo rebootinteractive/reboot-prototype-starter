@@ -1,19 +1,23 @@
 import { MainMenu } from './ui/MainMenu';
 import { GameApp } from './game/GameApp';
 import { EditorApp } from './editor/EditorApp';
-import { LevelStore } from './levels/store';
-import { SupabaseBackend } from './levels/supabaseBackend';
-import { LocalDraftBackend } from './levels/localBackend';
-import { BUILTIN_LEVELS } from './levels/builtin';
-import { PROTOTYPE, HAS_BACKEND } from './config';
+import { LevelLibrary } from './levels/library';
+import { LocalSource } from './levels/sources/local';
+import { RepoSource } from './levels/sources/repo';
+import { ServerSource } from './levels/sources/server';
+import type { SourceId } from './levels/sources/types';
+import { PROTOTYPE } from './config';
 import type { LevelData } from './shared/types';
 
 const appEl = document.getElementById('app')!;
-// Drafts are always local. Supabase is the *publish* target only, so having a
-// shared backend configured never turns a private Save into a live publish.
-const drafts = new LocalDraftBackend(PROTOTYPE);
-const published = HAS_BACKEND ? new SupabaseBackend() : null;
-const store = new LevelStore(PROTOTYPE, drafts, published, BUILTIN_LEVELS);
+
+// Three sources, listed separately and never merged. Repo is available only
+// under the dev server, which is where the middleware that writes files lives.
+const library = new LevelLibrary([
+  new LocalSource(PROTOTYPE),
+  new RepoSource(),
+  new ServerSource(PROTOTYPE),
+]);
 
 let current: { dispose(): void } | undefined;
 function clearApp() { current?.dispose(); current = undefined; }
@@ -24,31 +28,31 @@ function showMenu() {
   clearApp();
   navSeq++;
   current = new MainMenu(appEl, {
-    store,
+    library,
     onPlay: (lv) => showGame(lv),
-    onEdit: (lv) => showEditor(lv),
+    onEdit: (lv, source) => showEditor(lv, source),
   });
 }
 
-async function showGame(level: LevelData, returnToEditor?: LevelData) {
+async function showGame(level: LevelData, back?: { level: LevelData; source: SourceId }) {
   clearApp();
   const seq = ++navSeq;
   const g = await GameApp.create(appEl, {
     level,
-    onMenu: () => (returnToEditor ? showEditor(returnToEditor) : showMenu()),
+    onMenu: () => (back ? showEditor(back.level, back.source) : showMenu()),
     onWin: () => { /* v1: silent; mechanic decides win UX */ },
   });
   if (seq !== navSeq) { g.dispose(); return; }  // superseded by a newer navigation
   current = g;
 }
 
-async function showEditor(initial?: LevelData) {
+async function showEditor(initial: LevelData | undefined, source: SourceId) {
   clearApp();
   const seq = ++navSeq;
   const e = await EditorApp.create(appEl, {
-    store, prototype: PROTOTYPE, initial,
+    library, source, prototype: PROTOTYPE, initial,
     onExit: () => showMenu(),
-    onTest: (lv) => showGame(lv, lv),
+    onTest: (lv) => showGame(lv, { level: lv, source }),
   });
   if (seq !== navSeq) { e.dispose(); return; }  // superseded by a newer navigation
   current = e;
