@@ -49,7 +49,7 @@ say so. A level living in more than one source is now flagged, not hidden.
 | --- | --- | --- | --- | --- |
 | **Local** | this browser's `localStorage` | yes | yes | only you |
 | **Repo** | `src/levels/published/*.json` | yes | yes | whoever pulls the repo |
-| **Server** | Supabase | no | no | everyone |
+| **Server** | Supabase | no | yes | everyone |
 
 **Save** writes back to the tab a level came from and never moves it. The `→`
 buttons copy a level to another tab, keeping its id so a later publish replaces
@@ -64,9 +64,18 @@ follow the level name so diffs read well; a rename moves the file, collisions
 get a suffix, and anything that is not a bare kebab-case `.json` is refused so
 nothing can be written outside the levels directory.
 
-**Server is read-only.** To revise a published level, copy it down to Local or
-Repo, edit, and publish again. There is no delete: the key has no delete
-permission, on purpose.
+**A server level is not edited in place.** To revise one, copy it down to Local
+or Repo, edit, and publish again — the id is preserved, so publishing replaces
+rather than duplicates.
+
+**Delete on the Server tab removes a level for everyone**, with no undo. It
+needs the delete grant and policy in `docs/supabase-schema.sql`; without them it
+fails loudly rather than appearing to work, because PostgREST reports a delete
+that matched no rows exactly as it reports one that did.
+
+**Push all to Server** on the Local or Repo tab publishes that whole tab at
+once. It says how many are new and names the ones it would overwrite before it
+starts, since those are a colleague's published copies.
 
 **Nothing ships in the bundle.** A freshly deployed prototype shows only what
 has been published, so publish your baseline levels as part of first deploy.
