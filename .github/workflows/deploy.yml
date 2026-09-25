@@ -1,33 +1,51 @@
-name: Deploy to GitHub Pages
+name: Deploy to protos.reboot.gs
+
+# Builds the prototype and uploads dist/ to the studio VPS, where it is served
+# behind a password at https://protos.reboot.gs/<repo-name>/.
+# Needs the PROTOS_DEPLOY_KEY repo secret (an upload-only key). A repo made from
+# this starter doesn't inherit secrets: set it once with
+#   gh secret set PROTOS_DEPLOY_KEY -R rebootinteractive/<Name> < ~/.ssh/reboot-protos-deploy
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
+        with:
+          node-version: '20'
+          cache: 'npm'
       - run: npm ci
       - run: npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: ./dist }
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check deploy key
+        env:
+          DEPLOY_KEY: ${{ secrets.PROTOS_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::PROTOS_DEPLOY_KEY secret is missing, so nothing was deployed. Set it with: gh secret set PROTOS_DEPLOY_KEY -R $GITHUB_REPOSITORY < ~/.ssh/reboot-protos-deploy"
+            exit 1
+          fi
+      - name: Upload to protos.reboot.gs
+        env:
+          DEPLOY_KEY: ${{ secrets.PROTOS_DEPLOY_KEY }}
+          SITE: ${{ github.event.repository.name }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/protos_key && chmod 600 ~/.ssh/protos_key
+          echo "157.90.172.170 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL+DDKp4f3QeEWnrTxi4jwmPw/P56zSd+rJUOhEHwoM0" > ~/.ssh/known_hosts
+          rsync -rtv --delete --chmod=D755,F644 \
+            -e "ssh -i ~/.ssh/protos_key -o IdentitiesOnly=yes" \
+            dist/ "protos@157.90.172.170:$SITE/"
+          echo "Live at https://protos.reboot.gs/$SITE/"
