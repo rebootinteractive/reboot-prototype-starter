@@ -1,8 +1,8 @@
 # reboot-prototype-starter
 
-Template for Reboot Studio 2D casual-puzzle prototypes.
-Vite + TypeScript + PixiJS + Supabase. Cloned per prototype by the
-`reboot-prototype` skill.
+Template for Reboot Studio casual-puzzle prototypes (2D, or 3D with a Three.js
+`GameApp`). Vite + TypeScript + PixiJS; shared levels live on the studio server
+(protos.reboot.gs). Cloned per prototype by the `reboot-prototype` skill.
 
 ## Per-prototype setup
 1. Clone/degit this repo into `~/Documents/RebootPrototypes/<Name>/`.
@@ -15,28 +15,26 @@ Vite + TypeScript + PixiJS + Supabase. Cloned per prototype by the
 
 ## Live levels — already connected
 
-There is nothing to set up. `.env` is committed with the shared studio Supabase
-project, so a fresh clone can publish levels the moment `PROTOTYPE` is set. No
-dashboard visit, no SQL, no secrets: every prototype shares one project and one
-`levels` table, and the `prototype` column keeps them apart.
+There is nothing to set up. Shared levels are stored by the studio server's
+`protos-hub` app at `/_hub/api/levels/<PROTOTYPE>`, behind the same team
+password as the prototypes — no keys, no accounts, nothing in `.env`. Deployed
+at `https://protos.reboot.gs/<Name>/`, the game reaches it on its own origin.
 
-`docs/supabase-schema.sql` records the table's shape. It has **already been run**
-and is reference only.
+Under `npm run dev`, `vite.config.ts` proxies `/_hub` to protos.reboot.gs and
+the browser asks for the team password the first time the Server tab loads.
+
+**Share links carry a snapshot.** A public share link (`/s/…`) has no password,
+so it can't reach the API. The build writes `hub.json` naming the namespace, and
+when someone makes a share link the server copies this prototype's current
+levels into it as `shared-levels.json`. The Server tab there is read-only and
+frozen at the moment the link was made — publish first, then share.
 
 ### `PROTOTYPE` is the one thing you must change
 
-It ships as `CHANGE-ME`, and while it stays that way the app refuses to publish
-and keeps every level local to the browser — the menu says so. This is
-deliberate: with credentials baked in, a forgotten rename would quietly pool
-this game's levels in with every other prototype that forgot.
-
-### The key is public on purpose
-
-It is embedded in the bundle and extractable from any build, so it is committed
-rather than pretended to be secret. It grants read, insert and update on the
-`levels` table and nothing else — no delete. To retire it, roll it in the
-Supabase dashboard; deleting the file will not remove it from git history. The
-`service_role` / secret key never belongs in the repo.
+It ships as `CHANGE-ME`, and while it stays that way the Server tab is hidden
+and every level stays local to the browser (the server refuses `CHANGE-ME`
+too). This is deliberate: a forgotten rename would otherwise pool this game's
+levels in with every other prototype that forgot.
 
 ## Three level sources, never merged
 
@@ -49,7 +47,7 @@ say so. A level living in more than one source is now flagged, not hidden.
 | --- | --- | --- | --- | --- |
 | **Local** | this browser's `localStorage` | yes | yes | only you |
 | **Repo** | `src/levels/published/*.json` | yes | yes | whoever pulls the repo |
-| **Server** | Supabase | no | yes | everyone |
+| **Server** | studio server (protos-hub) | no | yes | everyone |
 
 **Save** writes back to the tab a level came from and never moves it. The `→`
 buttons copy a level to another tab, keeping its id so a later publish replaces
@@ -68,10 +66,8 @@ nothing can be written outside the levels directory.
 or Repo, edit, and publish again — the id is preserved, so publishing replaces
 rather than duplicates.
 
-**Delete on the Server tab removes a level for everyone**, with no undo. It
-needs the delete grant and policy in `docs/supabase-schema.sql`; without them it
-fails loudly rather than appearing to work, because PostgREST reports a delete
-that matched no rows exactly as it reports one that did.
+**Delete on the Server tab removes a level for everyone**, with no undo, and
+the server keeps no backup — keep anything precious in the Repo tab too.
 
 **Push all to Server** on the Local or Repo tab publishes that whole tab at
 once. It says how many are new and names the ones it would overwrite before it

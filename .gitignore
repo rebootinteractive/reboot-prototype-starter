@@ -3,6 +3,5 @@ dist
 .DS_Store
 *.tsbuildinfo
 
-# .env holds the shared studio Supabase key and IS committed, so a fresh
-# prototype is connected the moment it is cloned. .env.local stays out.
+.env
 .env.local

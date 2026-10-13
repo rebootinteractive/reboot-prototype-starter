@@ -1,8 +1,8 @@
 /**
  * Per-prototype namespace. CHANGE THIS FIRST in a new prototype.
  *
- * Every prototype shares one Supabase project, and this string is what keeps
- * their levels apart. Leaving it as the placeholder would pool this game's
+ * Every prototype's levels live on the same studio server, and this string is
+ * what keeps them apart. Leaving it as the placeholder would pool this game's
  * levels in with every other prototype that forgot -- so the app refuses to
  * publish until it is changed, rather than quietly writing to the wrong bucket.
  */
@@ -17,15 +17,13 @@ const PLACEHOLDER = 'CHANGE-ME';
 /** True while PROTOTYPE is still the placeholder. */
 export const PROTOTYPE_UNSET = PROTOTYPE === PLACEHOLDER || !PROTOTYPE;
 
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-
 /**
- * Shared levels are on when the studio project is reachable *and* this
- * prototype has claimed a namespace. Both come from files in the repo, so a
- * fresh clone is connected with nothing to configure.
+ * True on a public share link (https://protos.reboot.gs/s/<id>/). There the
+ * levels API is out of reach -- it sits behind the team password -- so the game
+ * reads the levels the server bundled into the link instead.
+ * (`typeof location` guard: vite.config imports this file under Node.)
  */
-export const HAS_BACKEND = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && !PROTOTYPE_UNSET);
+export const IS_SHARE_LINK = typeof location !== 'undefined' && /^\/s\/[^/]+\//.test(location.pathname);
 
 if (PROTOTYPE_UNSET) {
   console.warn(

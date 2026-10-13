@@ -9,8 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "pixi.js": "^8.19.0",
-    "@supabase/supabase-js": "^2.108.0"
+    "pixi.js": "^8.19.0"
   },
   "devDependencies": {
     "typescript": "^6.0.0",

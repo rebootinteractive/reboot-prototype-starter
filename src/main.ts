@@ -4,9 +4,9 @@ import { EditorApp } from './editor/EditorApp';
 import { LevelLibrary } from './levels/library';
 import { LocalSource } from './levels/sources/local';
 import { RepoSource } from './levels/sources/repo';
-import { ServerSource } from './levels/sources/server';
+import { ServerSource, SharedLevelsSource } from './levels/sources/server';
 import type { SourceId } from './levels/sources/types';
-import { PROTOTYPE } from './config';
+import { PROTOTYPE, IS_SHARE_LINK } from './config';
 import type { LevelData } from './shared/types';
 
 const appEl = document.getElementById('app')!;
@@ -16,7 +16,7 @@ const appEl = document.getElementById('app')!;
 const library = new LevelLibrary([
   new LocalSource(PROTOTYPE),
   new RepoSource(),
-  new ServerSource(PROTOTYPE),
+  IS_SHARE_LINK ? new SharedLevelsSource() : new ServerSource(PROTOTYPE),
 ]);
 
 let current: { dispose(): void } | undefined;

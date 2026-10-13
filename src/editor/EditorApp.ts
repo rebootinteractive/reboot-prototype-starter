@@ -2,7 +2,7 @@ import { Application, Container, Graphics, Rectangle } from 'pixi.js';
 import type { LevelData, GameElement } from '../shared/types';
 import type { LevelLibrary } from '../levels/library';
 import type { SourceId } from '../levels/sources/types';
-import { ServerSource } from '../levels/sources/server';
+import { ServerSource, publishBlockedReason } from '../levels/sources/server';
 import { STAGE_W, STAGE_H, DOT_R, coerceColor } from '../shared/stage';
 import { SCHEMA_VERSION } from '../levels/schema';
 
@@ -138,7 +138,7 @@ export class EditorApp {
       const btn = ev.target as HTMLButtonElement;
       const server = this.opts.library.get('server');
       if (!(server instanceof ServerSource) || !server.available) {
-        btn.textContent = 'Set PROTOTYPE first';
+        btn.textContent = publishBlockedReason() ?? 'Server unavailable';
         this.saveResetTimer = setTimeout(() => { btn.textContent = 'Publish'; }, 2000);
         return;
       }
